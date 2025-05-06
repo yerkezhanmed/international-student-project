@@ -1,0 +1,312 @@
+---
+title: "Where Do International Students Come From — and What Affects Their Enrollment?"
+author: "Yerkezhan Medetbekova"
+date: "2025-05-01"
+output: html_document
+---
+
+## Introduction
+
+Each year, thousands of international students choose to study in the United States. But where do they come from—and what factors influence their enrollment?
+
+As an international student myself, I was curious about how geographic origin, field of study, and academic level affect student numbers over time. I wanted to explore whether certain regions send more students, which academic programs are most common, and how visa types vary over time.
+
+This project uses a dataset from Kaggle titled [**International Student Demographics**](https://www.kaggle.com/datasets/webdevbadger/international-student-demographics) by **Takumi Watanabe** and includes five separate CSV files. These contain data on international students' countries of origin, academic programs, fields of study, and visa status. Across all files, the dataset contains over 20,000 rows and covers the years 1998 through 2022.
+
+Variable Descriptions
+
+year: The academic year, originally formatted like "2020/21", separated into start_year and end_year
+
+origin_region: Broad region of origin (e.g., East Asia, Europe)
+
+academic_type: Level of study (e.g., Undergraduate, Graduate)
+
+students: Count of international students per group
+
+field_of_study: Academic field like Engineering, Business, etc.
+
+visa_f, visa_j, visa_other: Number of students by visa type
+
+
+
+Through wrangling, visualizations, and modeling, I aim to answer:  
+**What factors are associated with international student enrollment in the U.S.?**
+
+
+In this project, I go through the full data science process: wrangling and cleaning data, creating visualizations, building a linear regression model, and summarizing key insights about what drives international student enrollment in the U.S.
+
+
+Setup: Loading Packages and Data
+To begin, I loaded all necessary packages used in this project. I used core functions for data wrangling, visualization, and modeling.
+
+
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(janitor)  
+library(forcats)
+
+
+```
+
+Next, I loaded the datasets using `read_csv()` and previewed their structure with `glimpse()`
+
+
+
+```{r}
+# Load all related datasets
+academic <- read_csv("academic.csv")
+academic_detail <- read_csv("academic_detail.csv")
+origin <- read_csv("origin.csv")
+field_of_study <- read_csv("field_of_study.csv")
+source_of_fund <- read_csv("source_of_fund.csv")
+status <- read_csv("status.csv")
+
+```
+I initially downloaded five CSVs, but after exploring each one, I decided to focus on the three most relevant: origin.csv, field_of_study.csv, and status.csv. These files include information about students' regions of origin, their field of study, and demographic status over time.
+
+```{r}
+glimpse(origin)
+glimpse(field_of_study)
+glimpse(status)
+```
+
+
+
+## Data Wrangling
+
+
+I worked with three key datasets: origin.csv, field_of_study.csv, and status.csv. Each required parsing the academic year, converting character columns to factors, and aggregating student counts by region, field, or visa type. I used separate() to split the year column into start_year and end_year, mutate() to convert numeric text, and group_by() with summarise() to collapse the data for analysis and plots.
+
+### `origin.csv`
+
+I cleaned the `origin.csv` data by parsing the year, converting variables to factors, filtering for Graduate and Undergraduate students, and grouping by region, academic type, and year.
+
+
+```{r}
+# Clean and summarize origin data by region and academic type
+origin_clean <- origin |>
+  separate(year, into = c("start_year", "end_year"), sep = "/", remove = FALSE) |> # Split year column into start and end
+  mutate(
+    start_year = parse_number(start_year),               # Convert start_year to numeric
+    academic_type = factor(academic_type),               # Convert academic_type to factor
+    origin_region = factor(origin_region)                # Convert origin_region to factor
+  ) |>
+  filter(academic_type %in% c("Graduate", "Undergraduate")) |> # Keep only relevant academic types
+  group_by(start_year, origin_region, academic_type) |>  # Group by year, region, and type
+  summarise(
+    students = sum(students, na.rm = TRUE),              # Total students in each group
+    .groups = "drop"
+  )
+origin_clean
+```
+field_of_study.csv
+I cleaned the field_of_study.csv data by extracting the start year and summarizing total student counts by field and year.
+
+
+
+```{r}
+# Prepare field of study data by total students per year
+
+field_clean <- field_of_study |>
+  separate(year, into = c("start_year", "end_year"), sep = "/", remove = FALSE) |> # Split year
+  mutate(start_year = parse_number(start_year)) |>        # Convert to numeric
+  group_by(start_year, field_of_study) |>                 # Group by year and field
+  summarise(
+    total_students = sum(students, na.rm = TRUE),         # Sum students per field
+    .groups = "drop"
+  )
+field_clean 
+```
+
+status.csv
+I cleaned the status.csv data by separating the year and converting start_year to numeric for future use in plots
+
+```{r}
+# Clean status data
+
+status_clean <- status |>
+  separate(year, into = c("start_year", "end_year"), sep = "/", remove = FALSE) |> # Split year
+  mutate(start_year = parse_number(start_year)) # Convert start_year to numeric
+status_clean
+```
+
+
+
+
+
+## Data Visualization
+
+To explore trends in international student enrollment, I created visualizations that highlight changes over time by region and field of study. These plots help answer where most students come from and what areas they study.
+
+📊 1. Line Plot: Students by Region Over Time
+```{r}
+origin_clean |>
+  group_by(start_year, origin_region) |>
+  summarise(total_students = sum(students, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(x = start_year, y = total_students, color = origin_region)) +
+  geom_line() +
+  labs(title = "Enrollment Trends by Region (2000–2020)",
+       x = "Year",
+       y = "Number of Students",
+       color = "Region") +
+  theme_minimal()
+
+```
+📌 What it shows: Asia consistently sends the most students, but other regions like the Middle East and Latin America have also grown over time.
+
+
+
+📊 2. Bar Plot: Top Fields of Study in Most Recent Year
+
+```{r}
+# Filter most recent year and show top 6 fields
+
+field_clean |>
+  filter(start_year == max(start_year, na.rm = TRUE)) |>
+  slice_max(total_students, n = 6) |>
+  ggplot(aes(x = reorder(field_of_study, total_students), y = total_students)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Top Fields of Study (Most Recent Year)",
+    x = "Field of Study",
+    y = "Number of Students"
+  ) +
+  theme_minimal()
+
+```
+📌 What it shows: Math & Computer Science, Engineering, and Business are the most popular fields among international students.
+
+
+
+
+📊 3.Line Plot: Visa Type Trends Over Time
+
+This plot compares how different visa types (F, J, and Other) changed across years using status_clean.
+
+
+```{r}
+# Reshape visa data into long format for plotting
+visa_long <- status_clean |>
+  select(start_year, visa_f, visa_j, visa_other) |>
+  pivot_longer(
+    cols = starts_with("visa"),
+    names_to = "visa_type",
+    values_to = "students"
+  )
+
+# Plot visa type trends
+ggplot(visa_long, aes(x = start_year, y = students, color = visa_type)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Trends in Visa Types Over Time",
+    x = "Year",
+    y = "Number of Students",
+    color = "Visa Type"
+  ) +
+  theme_minimal()
+
+```
+
+
+📌 What it shows:
+F-1 visa holders (typical for full-time students) consistently make up the largest group.
+
+J and other visa types are used much less frequently.
+
+The gap between visa types has remained fairly stable over time.
+
+
+
+
+
+## Modeling
+Modeling Goal:
+To understand what factors help explain the number of international students, I built a linear regression model using region and academic type as predictors.
+
+
+✅ Step 1: Prepare data for modeling
+```{r}
+# Prepare dataset for modeling: total students by region and academic type
+model_data <- origin_clean |>
+  group_by(start_year, origin_region, academic_type) |>
+  summarise(
+    total_students = sum(students, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    origin_region = factor(origin_region),
+    academic_type = factor(academic_type)
+  )
+model_data
+
+```
+
+✅ Step 2: Fit the linear model
+```{r}
+# Fit a linear regression model
+model_fit <- lm(total_students ~ origin_region + academic_type, data = model_data)
+
+# View summary
+summary(model_fit)
+
+```
+The model shows that:
+- Students from East Asia make up the largest group (reflected in the high intercept)
+- Some regions (e.g., Europe, Latin America) are associated with lower student counts compared to the baseline
+- Graduate programs tend to have higher student counts than undergraduate, on average
+
+
+
+
+
+
+## Conclusion & Limitations
+This project explored trends in international student enrollment in the United States using multiple datasets from Kaggle. The analysis showed that:
+
+The linear model confirms that students from East Asia and Europe tend to enroll in higher numbers, and that graduate programs attract more students than undergraduate. These insights could help universities anticipate demand and tailor outreach to high-growth regions.
+
+-East Asia consistently sends the most international students to the U.S.
+
+-Graduate programs attract more students than undergraduate programs
+
+-Math & Computer Science, Engineering, and Business are the most common fields of study
+
+-F-1 visas are by far the most common type used by international students
+
+### Limitations
+This analysis has some limitations:
+
+-The dataset only goes up to 2022 and may not reflect post-COVID trends or policy changes
+
+-The model includes just a few categorical predictors (region, academic type) and does not account for economic, policy, or institutional variables
+
+-Data is summarized by region, which may hide important differences between individual countries
+
+
+### Next Steps
+
+If I were to expand this project, I would:
+
+-Add external datasets (e.g., tuition costs, GDP, or university rankings)
+
+-Use classification models to predict visa types or academic level
+
+-Explore country-level patterns rather than just regional summaries
+
+
+## References
+
+- Watanabe, T. (2022). *International Student Demographics* [Dataset]. Kaggle. https://www.kaggle.com/datasets/webdevbadger/international-student-demographics
+
+You are always welcome to view the full code and project files on my GitHub:  
+🔗 [https://github.com/yerkezhanmedetbekova/international-student-project](https://github.com/yerkezhanmedetbekova/international-student-project)
+
+Thank you for taking the time to explore my final project! 😊  
+
+
+
+
+
