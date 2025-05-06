@@ -3,7 +3,7 @@
 This project explores international student enrollment patterns in the United States using data from Kaggle. I analyzed trends by region, field of study, and visa type from 2000–2022. I used wrangling, visualization, and linear regression to understand which factors influence enrollment. As an international student myself, I was curious about what the data would reveal.
 
 - 🔗 **Blog post**: [View Full Report](https://yerkezhanmed.github.io/international-student-project/index.html)
-📄 **Slides (PDF)**: https://github.com/yerkezhanmed/international-student-project/blob/main/Final%20Presentation%20Yerkezhan%20Medetbekova.pdf
+📄 **Slides (PDF)**: [View Presentation] https://github.com/yerkezhanmed/international-student-project/blob/main/Final%20Presentation%20Yerkezhan%20Medetbekova.pdf
 ---
 
 **Thank you for checking out my project!**  
